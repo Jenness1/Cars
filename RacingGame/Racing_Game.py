@@ -23,7 +23,7 @@ pygame.display.set_caption("Racing Game!")
 
 FPS = 60
 
-# Create a mutex lock
+#Mutex lock
 position_lock = threading.Lock()
 
 #--------------------------------------------------
