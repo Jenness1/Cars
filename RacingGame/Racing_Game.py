@@ -23,13 +23,8 @@ pygame.display.set_caption("Racing Game!")
 
 FPS = 60
 
-#Here have stuff for shared variables 
-
-
-
-
-
-
+# Create a mutex lock
+position_lock = threading.Lock()
 
 #--------------------------------------------------
 
@@ -58,7 +53,7 @@ class AbstractCar:
         self.move()
 
     def move_backward(self):
-        self.vel = max(self.vel - self.acceleration, -self.max_vel/2)
+        self.vel = max(self.vel - self.acceleration, -self.max_vel / 2)
         self.move()
 
     def move(self):
@@ -99,7 +94,7 @@ def draw(win, images, car1, car2):
     car2.draw(win)
     pygame.display.update()
 
-#Instead of player controlling, it is determined by threading and stuff 
+#Instead of player controlling, it is determined by threading 
 def move_player(car):
     keys = pygame.key.get_pressed()
     moved = False
@@ -118,11 +113,55 @@ def move_player(car):
     if not moved:
         car.reduce_speed()
 
-# This function will be run in a thread to control the car
-def car_controller(car):
+def move_player2(car):
+    keys = pygame.key.get_pressed()
+    moved = False
+
+    if keys[pygame.K_LEFT]:
+        car.rotate(left=True)
+    if keys[pygame.K_RIGHT]:
+        car.rotate(right=True)
+    if keys[pygame.K_UP]:
+        moved = True
+        car.move_forward()
+    if keys[pygame.K_DOWN]:
+        moved = True
+        car.move_backward()
+
+    if not moved:
+        car.reduce_speed()
+
+# Controls car movement
+def car_controller(car1, car2):
     while run:
-        move_player(car)
+        move_player(car1)
+
+        #After the car moves, checks to see if it is colliding with the other car
+        #Critical section; Only the first thread to reach this part will get the position_lock. Only that thread can access this part
+        #Only one car will check for collison instead of both
+        with position_lock:
+            # Check if car1 collides with car2
+            if car1.collide(pygame.mask.from_surface(car2.img), car2.x, car2.y):
+                car1.bounce()
+        
+
         time.sleep(1 / FPS)  # Maintain the frame rate timing
+
+def car_controller2(car1, car2):
+    while run:
+        move_player2(car1)
+
+        #After the car moves, checks to see if it is colliding with the other car
+        #Critical section; Only the first thread to reach this part will get the position_lock. Only that thread can access this part
+        #Only one car will check for collison instead of both
+        with position_lock:
+            # Check if car1 collides with car2
+            if car1.collide(pygame.mask.from_surface(car2.img), car2.x, car2.y):
+                car1.bounce()
+        
+
+        time.sleep(1 / FPS)  # Maintain the frame rate timing
+
 
 run = True
 clock = pygame.time.Clock()
@@ -130,12 +169,13 @@ images = [(GRASS, (0, 0)), (TRACK, (0, 0)),
           (FINISH, FINISH_POSITION), (TRACK_BORDER, (0, 0))]
 
 # Create the two car threads
-car1 = PlayerCar(8, 8, (490,100))
-car1_thread = threading.Thread(target=car_controller, args=(car1,))
-car1_thread.start()
+car1 = PlayerCar(8, 8, (490, 100))
+car2 = PlayerCar(8, 8, (510, 100))
 
-car2 = PlayerCar(8, 8, (510,100))
-car2_thread = threading.Thread(target=car_controller, args=(car2,))
+car1_thread = threading.Thread(target=car_controller, args=(car1, car2))
+car2_thread = threading.Thread(target=car_controller2, args=(car2, car1))
+
+car1_thread.start()
 car2_thread.start()
 
 # Main game loop
@@ -148,7 +188,7 @@ while run:
         if event.type == pygame.QUIT:
             run = False
             break
-    
+
     # Car1 collison 
     if car1.collide(TRACK_BORDER_MASK) != None:
         car1.bounce()
@@ -161,10 +201,10 @@ while run:
             car1.reset()
             print("finish")
 
-    #Car2 collison
+    # Car2 collison
     if car2.collide(TRACK_BORDER_MASK) != None:
         car2.bounce()
-    
+
     finish_poi_collide2 = car2.collide(FINISH_MASK, *FINISH_POSITION)
     if finish_poi_collide2 != None:
         if finish_poi_collide2[1] == 0:
@@ -173,8 +213,8 @@ while run:
             car2.reset()
             print("finish")
 
-#Ending the game
+# Ending the game
 pygame.quit()
 run = False  # Stop the thread
-car1_thread.join()  # Ensure the thread stops gracefully
-car1_thread.join()
+car1_thread.join()  
+car2_thread.join()
