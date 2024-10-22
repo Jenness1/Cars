@@ -23,8 +23,19 @@ pygame.display.set_caption("Racing Game!")
 
 FPS = 60
 
+#Here have stuff for shared variables 
+
+
+
+
+
+
+
+#--------------------------------------------------
+
 class AbstractCar:
-    def __init__(self, max_vel, rotation_vel):
+    def __init__(self, max_vel, rotation_vel, START_POS):
+        self.START_POS = START_POS
         self.img = self.IMG
         self.max_vel = max_vel
         self.vel = 0
@@ -71,79 +82,99 @@ class AbstractCar:
 
 class PlayerCar(AbstractCar):
     IMG = RED_CAR
-    START_POS = (490, 100)
 
     def reduce_speed(self):
         self.vel = max(self.vel - self.acceleration / 2, 0)
         self.move()
 
     def bounce(self):
-        self.vel = -self.vel
+        self.vel = 0.5 * -self.vel
         self.move()
 
-def draw(win, images, player_car):
+def draw(win, images, car1, car2):
     for img, pos in images:
         win.blit(img, pos)
 
-    player_car.draw(win)
+    car1.draw(win)
+    car2.draw(win)
     pygame.display.update()
 
-def move_player(player_car):
+#Instead of player controlling, it is determined by threading and stuff 
+def move_player(car):
     keys = pygame.key.get_pressed()
     moved = False
 
     if keys[pygame.K_a]:
-        player_car.rotate(left=True)
+        car.rotate(left=True)
     if keys[pygame.K_d]:
-        player_car.rotate(right=True)
+        car.rotate(right=True)
     if keys[pygame.K_w]:
         moved = True
-        player_car.move_forward()
+        car.move_forward()
     if keys[pygame.K_s]:
         moved = True
-        player_car.move_backward()
+        car.move_backward()
 
     if not moved:
-        player_car.reduce_speed()
+        car.reduce_speed()
 
 # This function will be run in a thread to control the car
-def car_controller(player_car):
+def car_controller(car):
     while run:
-        move_player(player_car)
+        move_player(car)
         time.sleep(1 / FPS)  # Maintain the frame rate timing
 
 run = True
 clock = pygame.time.Clock()
 images = [(GRASS, (0, 0)), (TRACK, (0, 0)),
           (FINISH, FINISH_POSITION), (TRACK_BORDER, (0, 0))]
-player_car = PlayerCar(8, 8)
 
-# Start the car control in a separate thread
-car_thread = threading.Thread(target=car_controller, args=(player_car,))
-car_thread.start()
+# Create the two car threads
+car1 = PlayerCar(8, 8, (490,100))
+car1_thread = threading.Thread(target=car_controller, args=(car1,))
+car1_thread.start()
+
+car2 = PlayerCar(8, 8, (510,100))
+car2_thread = threading.Thread(target=car_controller, args=(car2,))
+car2_thread.start()
 
 # Main game loop
 while run:
     clock.tick(FPS)
 
-    draw(WIN, images, player_car)
+    draw(WIN, images, car1, car2)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
             break
+    
+    # Car1 collison 
+    if car1.collide(TRACK_BORDER_MASK) != None:
+        car1.bounce()
 
-    if player_car.collide(TRACK_BORDER_MASK) != None:
-        player_car.bounce()
-
-    finish_poi_collide = player_car.collide(FINISH_MASK, *FINISH_POSITION)
+    finish_poi_collide = car1.collide(FINISH_MASK, *FINISH_POSITION)
     if finish_poi_collide != None:
         if finish_poi_collide[1] == 0:
-            player_car.bounce()
+            car1.bounce()
         else:
-            player_car.reset()
+            car1.reset()
             print("finish")
 
+    #Car2 collison
+    if car2.collide(TRACK_BORDER_MASK) != None:
+        car2.bounce()
+    
+    finish_poi_collide2 = car2.collide(FINISH_MASK, *FINISH_POSITION)
+    if finish_poi_collide2 != None:
+        if finish_poi_collide2[1] == 0:
+            car2.bounce()
+        else:
+            car2.reset()
+            print("finish")
+
+#Ending the game
 pygame.quit()
 run = False  # Stop the thread
-car_thread.join()  # Ensure the thread stops gracefully
+car1_thread.join()  # Ensure the thread stops gracefully
+car1_thread.join()
