@@ -26,6 +26,10 @@ FPS = 60
 #Mutex lock
 position_lock = threading.Lock()
 
+#Binary semaphore for checking the winner
+winner_semaphore = threading.Semaphore(1)
+winner_declared = False
+
 class AbstractCar:
     def __init__(self, max_vel, rotation_vel, START_POS):
         self.START_POS = START_POS
@@ -72,6 +76,8 @@ class AbstractCar:
         self.x, self.y = self.START_POS
         self.angle = 0
         self.vel = 0
+        global winner_declared
+        winner_declared = False
 
 class PlayerCar(AbstractCar):
     IMG = RED_CAR
@@ -92,21 +98,18 @@ def draw(win, images, car1, car2):
     car2.draw(win)
     pygame.display.update()
 
-#Semaphore implmentation
-class semaphore():
-    def __init__(self,value):
-        self.value = value
+def check_winner(car_number):
+    global winner_declared
 
-def p(s):
-    if s.value == 1:
-        s.value = 0
-    else:
-        queue.push()
+    #First thread to get here aquires the semaphore and can move on; the other thread cannot access the code until it is released
+    if winner_semaphore.acquire(blocking=False):
+        if not winner_declared:  
+            winner_declared = True
+            print(f"Car {car_number} wins the race!")
+        winner_semaphore.release()
 
-def v(s):
-    print()
 
-#Instead of player controlling, it is determined by threading 
+#Still need to add speed being random
 def move_player(car):
     keys = pygame.key.get_pressed()
     moved = False
@@ -164,8 +167,9 @@ def car_controller(car1, car2):
             if finish_poi_collide[1] == 0:
                 car1.bounce()
             else:
+                check_winner(1)
                 car1.reset()
-                print("Player 1 Won!")
+                car2.reset()
         
 
         time.sleep(1 / FPS) 
@@ -194,8 +198,9 @@ def car_controller2(car1, car2):
             if finish_poi_collide[1] == 0:
                 car1.bounce()
             else:
+                check_winner(2)
                 car1.reset()
-                print("Player 2 Won!")
+                car2.reset()
 
         time.sleep(1 / FPS) 
 
@@ -231,7 +236,5 @@ while run1 and run2:
 
 # Ending the game
 pygame.quit()
-run1 = False  # Stop the thread
-run1 = False
 car1_thread.join()  
 car2_thread.join()
