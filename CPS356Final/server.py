@@ -2,6 +2,7 @@ import threading
 import socket
 import json
 import os
+import hashlib
 
 host = '127.0.0.1'
 port = 59000
@@ -10,9 +11,8 @@ server.bind((host, port))
 server.listen()
 
 clients = []
-aliases = []
+display_names = []
 
-# Load or initialize user database
 USER_DB_FILE = "user_db.json"
 if os.path.exists(USER_DB_FILE):
     with open(USER_DB_FILE, 'r') as file:
@@ -26,14 +26,13 @@ def save_user_db():
         json.dump(user_db, file)
 
 
-def broadcast(message):
-    for client in clients:
-        client.send(message)
+def hash_password(password):
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
 def authenticate_client(client):
     while True:
-        client.send("Welcome! Type 'login' to log in or 'signup' to create a new account:".encode('utf-8'))
+        client.send("Welcome! Type 'login' to log in or 'signup' to create an account:".encode('utf-8'))
         choice = client.recv(1024).decode('utf-8').strip().lower()
 
         if choice == 'login':
@@ -41,49 +40,57 @@ def authenticate_client(client):
             username = client.recv(1024).decode('utf-8').strip()
             client.send("Enter password:".encode('utf-8'))
             password = client.recv(1024).decode('utf-8').strip()
+            hashed_password = hash_password(password)
 
-            if username in user_db and user_db[username] == password:
+            if username in user_db and user_db[username] == hashed_password:
                 client.send("Login successful!".encode('utf-8'))
                 return username
             else:
                 client.send("Invalid username or password. Try again.".encode('utf-8'))
 
         elif choice == 'signup':
-            client.send("Choose a username:".encode('utf-8'))
+            client.send("Select username:".encode('utf-8'))
             username = client.recv(1024).decode('utf-8').strip()
             if username in user_db:
                 client.send("Username already exists. Try again.".encode('utf-8'))
                 continue
 
-            client.send("Choose a password:".encode('utf-8'))
+            client.send("Select password:".encode('utf-8'))
             password = client.recv(1024).decode('utf-8').strip()
-            user_db[username] = password
+            hashed_password = hash_password(password)
+            user_db[username] = hashed_password
             save_user_db()
-            client.send("Signup successful! You can now log in.".encode('utf-8'))
+            client.send("Signup is complete! You can now log in.".encode('utf-8'))
+            print(f"User's password has been hashed and stored in the database.")
 
         else:
-            client.send("Invalid option. Please type 'login' or 'signup'.".encode('utf-8'))
+            client.send("Invalid input. Use 'login' or 'signup'.".encode('utf-8'))
+
+
+def broadcast(message):
+    for client in clients:
+        client.send(message)
 
 
 def handle_client(client):
-    alias = authenticate_client(client)
-    aliases.append(alias)
+    display_name = authenticate_client(client)
+    display_names.append(display_name)
     clients.append(client)
 
-    broadcast(f"Server: {alias} has joined the chat!".encode('utf-8'))
+    broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
     client.send("You are now connected to the chat room!".encode('utf-8'))
 
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            broadcast(f"{alias}: {message}".encode('utf-8'))
+            broadcast(f"{display_name}: {message}".encode('utf-8'))
         except:
             index = clients.index(client)
             clients.remove(client)
             client.close()
-            alias = aliases[index]
-            broadcast(f"Server: {alias} has left the chat!".encode('utf-8'))
-            aliases.remove(alias)
+            display_name = display_names[index]
+            broadcast(f"Server: {display_name} has left the chat!".encode('utf-8'))
+            display_names.remove(display_name)
             break
 
 
