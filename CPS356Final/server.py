@@ -87,7 +87,7 @@ def handle_client(client):
             allNames = allNames + ", " + name
         client.send(('Accounts online: ' + allNames).encode('utf-8'))
         print('\n')
-        client.send("Who would you like to chat with?:".encode('utf-8'))
+        client.send("\nWho would you like to chat with?:".encode('utf-8'))
         recipiant = client.recv(1024).decode('utf-8').strip()
         if recipiant not in display_names:
             client.send("Please enter a valid name ".encode('utf-8'))
@@ -103,7 +103,7 @@ def handle_client(client):
             i = i + 1
     recipiant_client = clients[i]
 
-    client.send((f"\nYou are now in a chatroom with {recipiant}!" ).encode('utf-8'))
+    client.send((f"\nYou are now talking to {recipiant}!" ).encode('utf-8'))
         
     while True:
         try:
