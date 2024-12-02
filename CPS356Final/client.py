@@ -1,91 +1,95 @@
-import threading
 import socket
+import threading
+import json
 import random
 import time
-import json
+import select
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    client.connect(('127.0.0.1', 59000))
-except ConnectionRefusedError:
-    print("Unable to connect to the server. Please check if the server is running.")
-    exit()
+
+# Connect to the server
+client.connect(('127.0.0.1', 59000))
 
 def client_receive():
+    """Handle incoming messages from the server."""
     while True:
-        try:
-            message = client.recv(1024).decode('utf-8')
-            if message:
-                print(message)
-        except:
-            print('Error! Connection closed.')
-            client.close()
-            break
+        # Use select to check if data is available to read from the socket
+        readable, _, _ = select.select([client], [], [], 0.1)
+        if readable:
+            try:
+                message = client.recv(1024).decode('utf-8')
+                if message:
+                    print(message)
+            except:
+                print('Error! Connection closed.')
+                client.close()
+                break
 
-class MemoryClient:
-    def __init__(self, host='127.0.0.1', port=59000):
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            self.client.connect((host, port))
-            print(f"Connected to the server at {host}:{port}")
-        except ConnectionRefusedError:
-            print("Unable to connect to the server. Please check if the server is running.")
-            exit()
+def authenticate():
+    """Handle login or signup process, waiting for the server's prompt."""
+    while True:
+        # Wait for the server's prompt for login or signup
+        response = client.recv(1024).decode('utf-8')
+        print(response)
 
-    def send_request(self):
-        """Send a JSON-formatted memory allocation or deallocation request."""
-        # Create a request packet
-        action = random.choice(["allocate", "deallocate"])  # Randomly choose action
-        size = random.randint(10, 100)  # Random size between 10 and 100
+        if 'login' in response or 'signup' in response:
+            choice = input("Enter 'login' to log in or 'signup' to create an account: ").strip().lower()
+            client.send(choice.encode('utf-8'))
+
+            if choice == 'login' or choice == 'signup':
+                # Handle username and password input after the server's prompt
+                username_prompt = client.recv(1024).decode('utf-8')
+                print(username_prompt)
+                username = input("Enter username: ").strip()
+                client.send(username.encode('utf-8'))
+
+                password_prompt = client.recv(1024).decode('utf-8')
+                print(password_prompt)
+                password = input("Enter password: ").strip()
+                client.send(password.encode('utf-8'))
+
+                # Wait for server's response
+                response = client.recv(1024).decode('utf-8')
+                print(response)
+
+                # If login/signup is successful, break the loop
+                if 'successful' in response:
+                    break
+        else:
+            print("Invalid choice, please try again.")
+
+def MemoryClient():
+    """Send a JSON-formatted memory allocation or deallocation request."""
+    while True:
+        # Randomly choose action (allocate or deallocate)
+        action = random.choice(["allocate", "deallocate"])
+        size = random.randint(10, 100)  # Random size
         request_packet = {"action": action, "size": size}
 
         # Convert the packet to JSON and send it
         request_json = json.dumps(request_packet)
         print(f"Sending request: {request_json}")
-        self.client.send(request_json.encode('utf-8'))
+        client.send(request_json.encode('utf-8'))
 
-        # Wait for the server's response
-        response = self.client.recv(1024).decode('utf-8')
+        # Wait for server's response
+        response = client.recv(1024).decode('utf-8')
         print(f"Server response: {response}")
+        time.sleep(3)  # Wait before sending the next request
 
-    def run(self, time_limit=60, interval=3):
-        """
-        Run the client in a loop, periodically sending requests until the time limit is reached.
-
-        :param time_limit: Maximum duration (in seconds) the client should run.
-        :param interval: Delay between consecutive requests (in seconds).
-        """
-        start_time = time.time()  # Record the start time
-
-        try:
-            while True:
-                # Check if the time limit has been exceeded
-                elapsed_time = time.time() - start_time
-                if elapsed_time > time_limit:
-                    print("Time limit reached. Stopping client.")
-                    break
-
-                # Send a memory allocation or deallocation request
-                self.send_request()
-                time.sleep(interval)  # Wait before the next request
-        except KeyboardInterrupt:
-            print("Client terminated.")
-        finally:
-            self.client.close()
-            print("Connection closed.")
-
-def client_send():
-    while True:
-        message = input("")
-        if message:
-            client.send(message.encode('utf-8'))
-
-
+# Start receiving messages from the server
 receive_thread = threading.Thread(target=client_receive)
 receive_thread.start()
 
-send_thread = threading.Thread(target=client_send)
-send_thread.start()
+# Authenticate user
+authenticate()
+
+# Wait for the "You can now perform memory operations." message
+response = client.recv(1024).decode('utf-8')
+if "perform memory operations" in response:
+    print("Authentication successful. You can now begin memory operations.")
+
+    # Start sending memory allocation/deallocation requests
+    MemoryClient()
 
 # Run the client
 if __name__ == "__main__":
