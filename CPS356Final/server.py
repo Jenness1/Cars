@@ -61,7 +61,7 @@ def authenticate_client(client):
             user_db[username] = hashed_password
             save_user_db()
             client.send("Signup is complete! You can now log in.".encode('utf-8'))
-            print(f"User's password has been hashed and stored in the database.")
+            print(f"{username}'s password has been hashed and stored in the database.")
 
         else:
             client.send("Invalid input. Use 'login' or 'signup'.".encode('utf-8'))
@@ -78,6 +78,7 @@ def handle_client(client):
     clients.append(client)
 
     broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
+    print(f"{display_name} has joined the chat")
     client.send("You are now connected to the chat room!".encode('utf-8'))
 
     while True:
