@@ -67,9 +67,8 @@ def authenticate_client(client):
             client.send("Invalid input. Use 'login' or 'signup'.".encode('utf-8'))
 
 
-def broadcast(message):
-    for client in clients:
-        client.send(message)
+def broadcast(message, recipiant):
+    recipiant.send(message)
 
 
 def handle_client(client):
@@ -77,14 +76,39 @@ def handle_client(client):
     display_names.append(display_name)
     clients.append(client)
 
-    broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
-    print(f"{display_name} has joined the chat")
-    client.send("You are now connected to the chat room!".encode('utf-8'))
+    #broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
+    #print(f"{display_name} has joined the chat")
+    #client.send("You are now connected to the chat room!".encode('utf-8')
 
+    #See who the client wants to talk to
+    while True:
+        allNames = ""
+        for name in display_names:
+            allNames = allNames + ", " + name
+        client.send(('Accounts online: ' + allNames).encode('utf-8'))
+        print('\n')
+        client.send("Who would you like to chat with?:".encode('utf-8'))
+        recipiant = client.recv(1024).decode('utf-8').strip()
+        if recipiant not in display_names:
+            client.send("Please enter a valid name ".encode('utf-8'))
+            continue
+        break
+
+    #Get the client from the display name
+    i = 0
+    for name in display_names:
+        if name == recipiant:
+            break
+        else:
+            i = i + 1
+    recipiant_client = clients[i]
+
+    client.send((f"\nYou are now in a chatroom with {recipiant}!" ).encode('utf-8'))
+        
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            broadcast(f"{display_name}: {message}".encode('utf-8'))
+            broadcast(f"{display_name}: {message}".encode('utf-8'), recipiant_client)
         except:
             index = clients.index(client)
             clients.remove(client)
@@ -100,9 +124,10 @@ def receive():
         print('Server is running and listening ...')
         client, address = server.accept()
         print(f"Connection established with {str(address)}")
-        thread = threading.Thread(target=handle_client, args=(client,))
+        thread = threading.Thread(target=handle_client, args=(client,), daemon=True)
         thread.start()
- 
+
+
 
 if __name__ == "__main__":
     receive()
