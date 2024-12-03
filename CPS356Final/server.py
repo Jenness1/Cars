@@ -144,7 +144,7 @@ def handle_client(client):
             elif action == "deallocate":
                 print("deallocate")
             elif action == "chat":
-                broadcast(f"{display_name}: {message}".encode('utf-8'), recipiant_client)
+                broadcast(message, recipiant_client)
             else:
                 print("There was an error somewhere")
             
@@ -153,7 +153,7 @@ def handle_client(client):
             clients.remove(client)
             client.close()
             display_name = display_names[index]
-            broadcast(f"Server: {display_name} has left the chat!".encode('utf-8'))
+            broadcast(f"Server: {display_name} has left the chat!", recipiant_client)
             display_names.remove(display_name)
             break
 
