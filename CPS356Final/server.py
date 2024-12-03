@@ -32,43 +32,67 @@ def hash_password(password):
 
 def authenticate_client(client):
     while True:
-        client.send("Welcome! Type 'login' to log in or 'signup' to create an account:".encode('utf-8'))
-        choice = client.recv(1024).decode('utf-8').strip().lower()
+        try:
+            # Send the initial welcome message
+            welcome_packet = {
+                "action": "system",
+                "message": "Welcome! Type 'login' to log in or 'signup' to create an account:"
+            }
+            client.send(json.dumps(welcome_packet).encode('utf-8'))
 
-        if choice == 'login':
-            client.send("Enter username:".encode('utf-8'))
-            username = client.recv(1024).decode('utf-8').strip()
-            client.send("Enter password:".encode('utf-8'))
-            password = client.recv(1024).decode('utf-8').strip()
-            hashed_password = hash_password(password)
+            # Receive client's choice
+            choice_packet = json.loads(client.recv(1024).decode('utf-8'))
+            choice = choice_packet.get("message", "").strip().lower()
 
-            if username in user_db and user_db[username] == hashed_password:
-                client.send("Login successful!".encode('utf-8'))
-                return username
+            if choice == 'login':
+                # Ask for username and password
+                client.send(json.dumps({"action": "system", "message": "Enter username:"}).encode('utf-8'))
+                username_packet = json.loads(client.recv(1024).decode('utf-8'))
+                username = username_packet.get("message", "").strip()
+
+                client.send(json.dumps({"action": "system", "message": "Enter password:"}).encode('utf-8'))
+                password_packet = json.loads(client.recv(1024).decode('utf-8'))
+                password = password_packet.get("message", "").strip()
+
+                hashed_password = hash_password(password)
+
+                if username in user_db and user_db[username] == hashed_password:
+                    client.send(json.dumps({"action": "system", "message": "Login successful!"}).encode('utf-8'))
+                    return username
+                else:
+                    client.send(json.dumps({"action": "system", "message": "Invalid username or password. Try again."}).encode('utf-8'))
+
+            elif choice == 'signup':
+                # Ask for username and password for signup
+                client.send(json.dumps({"action": "system", "message": "Select username:"}).encode('utf-8'))
+                username_packet = json.loads(client.recv(1024).decode('utf-8'))
+                username = username_packet.get("message", "").strip()
+
+                if username in user_db:
+                    client.send(json.dumps({"action": "system", "message": "Username already exists. Try again."}).encode('utf-8'))
+                    continue
+
+                client.send(json.dumps({"action": "system", "message": "Select password:"}).encode('utf-8'))
+                password_packet = json.loads(client.recv(1024).decode('utf-8'))
+                password = password_packet.get("message", "").strip()
+
+                hashed_password = hash_password(password)
+                user_db[username] = hashed_password
+                save_user_db()
+                client.send(json.dumps({"action": "system", "message": "Signup is complete! You can now log in."}).encode('utf-8'))
+                print(f"{username}'s password has been hashed and stored in the database.")
+
             else:
-                client.send("Invalid username or password. Try again.".encode('utf-8'))
+                client.send(json.dumps({"action": "system", "message": "Invalid input. Use 'login' or 'signup'."}).encode('utf-8'))
+        except Exception as e:
+            print(f"Error during authentication: {e}")
+            client.close()
+            break
 
-        elif choice == 'signup':
-            client.send("Select username:".encode('utf-8'))
-            username = client.recv(1024).decode('utf-8').strip()
-            if username in user_db:
-                client.send("Username already exists. Try again.".encode('utf-8'))
-                continue
-
-            client.send("Select password:".encode('utf-8'))
-            password = client.recv(1024).decode('utf-8').strip()
-            hashed_password = hash_password(password)
-            user_db[username] = hashed_password
-            save_user_db()
-            client.send("Signup is complete! You can now log in.".encode('utf-8'))
-            print(f"{username}'s password has been hashed and stored in the database.")
-
-        else:
-            client.send("Invalid input. Use 'login' or 'signup'.".encode('utf-8'))
 
 
 def broadcast(message, recipiant):
-    recipiant.send(message)
+    recipiant.send(json.dumps({"action": "system", "message": message}).encode('utf-8'))
 
 
 def handle_client(client):
@@ -81,25 +105,30 @@ def handle_client(client):
         allNames = ""
         for name in display_names:
             allNames = allNames + ", " + name
-        client.send(('Accounts online: ' + allNames).encode('utf-8'))
+        client.send(json.dumps({"action": "system", "message": 'Accounts online: ' + allNames}).encode('utf-8'))
         print('\n')
-        client.send("\nWho would you like to chat with?:".encode('utf-8'))
+        client.send(json.dumps({"action": "system", "message": "\nWho would you like to chat with?:"}).encode('utf-8'))
+
         recipiant = client.recv(1024).decode('utf-8').strip()
-        if recipiant not in display_names:
-            client.send("Please enter a valid name ".encode('utf-8'))
+        message_dict = json.loads(recipiant)
+        recipiant_name = message_dict.get("message")
+
+
+        if recipiant_name not in display_names:
+            client.send(json.dumps({"action": "system", "message": "Please enter a valid name "}).encode('utf-8'))
             continue
         break
 
     #Get the client from the display name
     i = 0
     for name in display_names:
-        if name == recipiant:
+        if name == recipiant_name:
             break
         else:
             i = i + 1
     recipiant_client = clients[i]
 
-    client.send((f"\nYou are now talking to {recipiant}!" ).encode('utf-8'))
+    client.send(json.dumps({"action": "system", "message": f"\nYou are now talking to {recipiant_name}!"}).encode('utf-8'))
         
     while True:
         try:
