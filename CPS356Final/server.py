@@ -138,13 +138,14 @@ def handle_client(client):
             #If it is, need to allocate memory instead of sending a message 
             message_dict = json.loads(message)
             action = message_dict.get("action")
+            message2 = message_dict.get("message")
 
             if action == "allocate":
                 print("allocate")
             elif action == "deallocate":
                 print("deallocate")
             elif action == "chat":
-                broadcast(message, recipiant_client)
+                broadcast(message2, recipiant_client)
             else:
                 print("There was an error somewhere")
             
