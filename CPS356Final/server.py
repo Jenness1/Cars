@@ -76,11 +76,7 @@ def handle_client(client):
     display_names.append(display_name)
     clients.append(client)
 
-    #broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
-    #print(f"{display_name} has joined the chat")
-    #client.send("You are now connected to the chat room!".encode('utf-8')
-
-    #See who the client wants to talk to
+    #See who the client wants to talk to 
     while True:
         allNames = ""
         for name in display_names:
@@ -108,7 +104,21 @@ def handle_client(client):
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            broadcast(f"{display_name}: {message}".encode('utf-8'), recipiant_client)
+
+            #See if action is a allocation or deallocation message
+            #If it is, need to allocate memory instead of sending a message 
+            message_dict = json.loads(message)
+            action = message_dict.get("action")
+
+            if action == "allocate":
+                print("allocate")
+            elif action == "deallocate":
+                print("deallocate")
+            elif action == "chat":
+                broadcast(f"{display_name}: {message}".encode('utf-8'), recipiant_client)
+            else:
+                print("There was an error somewhere")
+            
         except:
             index = clients.index(client)
             clients.remove(client)
@@ -126,6 +136,7 @@ def receive():
         print(f"Connection established with {str(address)}")
         thread = threading.Thread(target=handle_client, args=(client,), daemon=True)
         thread.start()
+
 
 
 
