@@ -12,6 +12,7 @@ server.listen()
 
 clients = []
 display_names = []
+action_counters = {}  # Dictionary to track client actions
 
 USER_DB_FILE = "user_db.json"
 if os.path.exists(USER_DB_FILE):
@@ -67,15 +68,23 @@ def authenticate_client(client):
             client.send("Invalid input. Use 'login' or 'signup'.".encode('utf-8'))
 
 
+<<<<<<< Updated upstream
 def broadcast(message, recipiant):
     recipiant.send(message)
+=======
+def broadcast(message, recipient):
+    recipient.send(message)
+>>>>>>> Stashed changes
 
 
 def handle_client(client):
+    # Authenticate the client first
     display_name = authenticate_client(client)
     display_names.append(display_name)
     clients.append(client)
+    action_counters[client] = 0  # Initialize action counter for the client
 
+<<<<<<< Updated upstream
     #broadcast(f"Server: {display_name} has joined the chat!".encode('utf-8'))
     #print(f"{display_name} has joined the chat")
     #client.send("You are now connected to the chat room!".encode('utf-8')
@@ -109,13 +118,72 @@ def handle_client(client):
         try:
             message = client.recv(1024).decode('utf-8')
             broadcast(f"{display_name}: {message}".encode('utf-8'), recipiant_client)
+=======
+    client.send("You are now logged in. Memory management and chat features are available.".encode('utf-8'))
+
+    # Main loop for post-login actions
+    while True:
+        try:
+            if action_counters[client] >= 4:
+                client.send("You have reached the maximum number of actions. Disconnecting...".encode('utf-8'))
+                print(f"{display_name} has been disconnected after 4 actions.")
+                clients.remove(client)
+                display_names.remove(display_name)
+                client.close()
+                break
+
+            client.send("\nOptions:\n1. Chat\n2. Request Memory Allocation\nEnter your choice:".encode('utf-8'))
+            choice = client.recv(1024).decode('utf-8').strip()
+
+            if choice == "1":
+                # Chat functionality
+                all_names = ", ".join(display_names)
+                client.send((f"Accounts online: {all_names}").encode('utf-8'))
+                client.send("\nWho would you like to chat with?:".encode('utf-8'))
+                recipient_name = client.recv(1024).decode('utf-8').strip()
+
+                if recipient_name not in display_names:
+                    client.send("Please enter a valid name.".encode('utf-8'))
+                    continue
+
+                # Get the recipient client from the display name
+                recipient_client = clients[display_names.index(recipient_name)]
+                client.send((f"\nYou are now talking to {recipient_name}! Type '/exit' to stop chatting.").encode('utf-8'))
+
+                while True:
+                    message = client.recv(1024).decode('utf-8')
+                    if message.lower() == "/exit":
+                        client.send("Exiting chat...".encode('utf-8'))
+                        break
+                    broadcast(f"{display_name}: {message}".encode('utf-8'), recipient_client)
+                    action_counters[client] += 1
+
+            elif choice == "2":
+                # Memory allocation functionality
+                client.send("Enter memory size to allocate (in KB or MB):".encode('utf-8'))
+                size = client.recv(1024).decode('utf-8').strip()
+
+                if size.isdigit():
+                    memory_request = {
+                        "action": "allocate",
+                        "size": int(size)
+                    }
+                    client.send((f"Memory allocation request sent: {memory_request}").encode('utf-8'))
+                    action_counters[client] += 1
+                else:
+                    client.send("Invalid size. Please enter a numeric value.".encode('utf-8'))
+
+            else:
+                client.send("Invalid choice. Try again.".encode('utf-8'))
+
+>>>>>>> Stashed changes
         except:
             index = clients.index(client)
             clients.remove(client)
             client.close()
             display_name = display_names[index]
-            broadcast(f"Server: {display_name} has left the chat!".encode('utf-8'))
             display_names.remove(display_name)
+            print(f"{display_name} has disconnected.")
             break
 
 
